@@ -1479,16 +1479,16 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
     private fun movePointer(x: Float, y: Float) {
         val width = surfaceView.width.takeIf { it > 0 } ?: return
         val height = surfaceView.height.takeIf { it > 0 } ?: return
-        val out = SessionState.outputSize
-        val scale = minOf(width / out.first.toFloat(), height / out.second.toFloat())
-        val drawnW = out.first * scale
-        val drawnH = out.second * scale
-        val left = (width - drawnW) / 2f
-        val top = (height - drawnH) / 2f
-        val px = ((x - left) / drawnW * 1920f).toInt().coerceIn(0, 1919)
-        val py = ((y - top) / drawnH * 1080f).toInt().coerceIn(0, 1079)
+        // INPUT_SPACE (0..1919 x 0..1079) spans the whole output surface: the native side maps it
+        // back through the render transform, which removes the letterbox bars itself. Normalising
+        // over the picture rect here would take them off twice, so with a letterboxed picture the
+        // pointer would land beside what it points at - the wider the bars, the further out (#237).
+        val px = (x / width * 1920f).toInt().coerceIn(0, 1919)
+        val py = (y / height * 1080f).toInt().coerceIn(0, 1079)
         WaylandCompositor.nativeSendPointer(1, px, py)
-        showCursor(x.coerceIn(left, left + drawnW), y.coerceIn(top, top + drawnH))
+        // The cursor is drawn inside the picture, where the guest's pointer can reach.
+        val rect = drawnRect() ?: return
+        showCursor(x.coerceIn(rect.left, rect.right), y.coerceIn(rect.top, rect.bottom))
     }
 
     /**
@@ -1683,10 +1683,12 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
             }
             return touchpad.onTouch(event)
         }
-        val rect = drawnRect() ?: return false
+        // As in movePointer: INPUT_SPACE covers the whole view, the bars come off native-side.
+        val width = surfaceView.width.takeIf { it > 0 } ?: return false
+        val height = surfaceView.height.takeIf { it > 0 } ?: return false
         fun sendTouch(action: Int, index: Int) {
-            val x = ((event.getX(index) - rect.left) / rect.width()).coerceIn(0f, 1f)
-            val y = ((event.getY(index) - rect.top) / rect.height()).coerceIn(0f, 1f)
+            val x = (event.getX(index) / width).coerceIn(0f, 1f)
+            val y = (event.getY(index) / height).coerceIn(0f, 1f)
             WaylandCompositor.nativeSendTouch(action, event.getPointerId(index), (x * 1919f).toInt(), (y * 1079f).toInt())
         }
         when (event.actionMasked) {
