@@ -418,7 +418,7 @@ private fun DesktopLanguageRow(s: FrontEndState) {
             )
             installed != null -> SecondaryButton(
                 stringResource(if (installed == true) R.string.desktop_language_reinstall else R.string.setup_install),
-                enabled = !s.busy && s.packageBusyId == null && !working, compact = true,
+                enabled = !s.busy && s.packageBusyId == null && !s.runtimeActionsBlocked && !working, compact = true,
             ) {
                 problem = null
                 working = true

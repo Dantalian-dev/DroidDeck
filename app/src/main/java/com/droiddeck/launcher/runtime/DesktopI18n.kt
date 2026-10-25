@@ -126,7 +126,7 @@ object DesktopI18n {
         if (!pack.startsWith("en") && !installed(root, pack)) {
             installPack(context, root, tag, pack, listener, baseUrl)?.let { return it }
         }
-        applyLanguage(root, pack, posix)
+        applyLanguage(root, pack, posix)?.let { return it }
         return null
     }
 
@@ -178,8 +178,9 @@ object DesktopI18n {
      * never overwritten. A localerc that already carries a LANGUAGE value but no note predates
      * any write of ours and is left untouched; one without a LANGUAGE value is ours to write.
      * Writes merge: only the keys we manage change, the rest of the file stays as it is.
+     * Returns null on success and a reason otherwise.
      */
-    internal fun applyLanguage(root: File, language: String, posix: String) {
+    internal fun applyLanguage(root: File, language: String, posix: String): String? {
         val localerc = File(root, LOCALERC)
         val note = FileUtils.readString(File(root, LANGUAGE_NOTE))?.trim()?.takeIf { it.isNotEmpty() }
         val existing = FileUtils.readString(localerc)
@@ -190,7 +191,7 @@ object DesktopI18n {
             current != note -> false
             else -> current != language
         }
-        if (!write) return
+        if (!write) return null
         val text = existing?.let { merged(it, language, posix) } ?: buildString {
             append("[Formats]\nLANG=$posix\n")
             for (field in FORMATS) append("$field=$posix\n")
@@ -198,9 +199,10 @@ object DesktopI18n {
         }
         if (!FileUtils.writeString(localerc, text)) {
             Log.w(TAG, "could not write $localerc")
-            return
+            return "could not write $localerc"
         }
         if (!FileUtils.writeString(File(root, LANGUAGE_NOTE), "$language\n")) Log.w(TAG, "could not record the desktop language")
+        return null
     }
 
     private fun merged(existing: String, language: String, posix: String): String {

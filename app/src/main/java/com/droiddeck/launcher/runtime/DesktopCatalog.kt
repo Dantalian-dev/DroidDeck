@@ -241,6 +241,7 @@ object DesktopCatalog {
             // Only once the journal is cleared: a failed language pack must not mark the finished
             // desktop install as unfinished, and a resumed install still brings translations too.
             if (entry.id == DESKTOP_ID) DesktopI18n.ensure(context, report)
+                ?.let { Log.w(TAG, "desktop language: $it") }
             keepDownload = false
             return null
         } catch (e: Exception) {

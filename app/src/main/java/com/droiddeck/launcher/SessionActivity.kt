@@ -745,7 +745,7 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
                 program == com.droiddeck.launcher.runtime.BattleNet.PROGRAM || program == com.droiddeck.launcher.session.NoSteamLaunch.PROTON_RUN
             val needProton = protonUser && com.droiddeck.launcher.runtime.DesktopCatalog.protonSeedNeeded(this)
             if (needRuntime || needResume || needDesktop || needProton) installThenStart(needRuntime, needDesktop, needProton, needResume)
-            else if (intent.getStringExtra(SessionService.EXTRA_MODE) == SessionService.MODE_DESKTOP) ensureDesktopLanguage()
+            if (intent.getStringExtra(SessionService.EXTRA_MODE) == SessionService.MODE_DESKTOP) ensureDesktopLanguage()
         }
         hud = DroidDeckHudHost(this)
         hud.onConfigChanged = { hudConfig = DroidDeckHudConfig.load(this) }
