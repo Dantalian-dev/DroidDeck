@@ -745,7 +745,9 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
                 program == com.droiddeck.launcher.runtime.BattleNet.PROGRAM || program == com.droiddeck.launcher.session.NoSteamLaunch.PROTON_RUN
             val needProton = protonUser && com.droiddeck.launcher.runtime.DesktopCatalog.protonSeedNeeded(this)
             if (needRuntime || needResume || needDesktop || needProton) installThenStart(needRuntime, needDesktop, needProton, needResume)
-            if (intent.getStringExtra(SessionService.EXTRA_MODE) == SessionService.MODE_DESKTOP) ensureDesktopLanguage()
+            // A runtime replacement races the language ensure (it does not hold installLock), so
+            // that case waits for installThenStart's success path instead.
+            if (!needRuntime && intent.getStringExtra(SessionService.EXTRA_MODE) == SessionService.MODE_DESKTOP) ensureDesktopLanguage()
         }
         hud = DroidDeckHudHost(this)
         hud.onConfigChanged = { hudConfig = DroidDeckHudConfig.load(this) }
@@ -1945,6 +1947,7 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
                     focusEndedScreen()
                     return@post
                 }
+                if (intent.getStringExtra(SessionService.EXTRA_MODE) == SessionService.MODE_DESKTOP) ensureDesktopLanguage()
                 loading.percent = -1
                 loading.say(getString(R.string.session_starting_session), LoadingState.Topic.SESSION, readable = false)
                 outputHolder().let { if (it.surface?.isValid == true) surfaceCreated(it) }
