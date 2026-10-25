@@ -234,15 +234,13 @@ object DesktopCatalog {
                 if (desktopFromPack(root)) DesktopPack.finishInstall(root) else cleanLegacy(context, report)
                 val pending = File(root, DesktopRemoval.PENDING)
                 check(!pending.exists() || pending.delete()) { "Could not finish desktop installation" }
-                // The desktop's language pack is finished under the same lock, so resuming an
-                // interrupted desktop install also brings its translations.
-                DesktopI18n.ensure(context, report)?.let { problem ->
-                    Log.w(TAG, "desktop language: $problem")
-                }
             }
             FileUtils.writeString(marker(context, entry.id), entry.version)
             check(installed(context, entry.id) == entry.version) { "Could not finish package installation" }
             check(!journal.exists() || journal.delete()) { "Could not finish package installation" }
+            // Only once the journal is cleared: a failed language pack must not mark the finished
+            // desktop install as unfinished, and a resumed install still brings translations too.
+            if (entry.id == DESKTOP_ID) DesktopI18n.ensure(context, report)
             keepDownload = false
             return null
         } catch (e: Exception) {

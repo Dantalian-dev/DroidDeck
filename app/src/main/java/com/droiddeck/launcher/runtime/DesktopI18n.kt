@@ -56,6 +56,10 @@ object DesktopI18n {
 
     fun posixLocale(tag: String): String? = POSIX[tag]
 
+    /** Unsupported app languages resolve to English, so setup and the settings row agree. */
+    internal fun effectiveTag(context: Context): String =
+        AppLanguage.supportedTag(AppLanguage.effective(context)) ?: "en"
+
     fun indexUrl(): String = indexFor(RELEASE_BASE)
 
     fun packUrl(pack: String): String = packFor(RELEASE_BASE, pack)
@@ -92,7 +96,7 @@ object DesktopI18n {
         listener: LinuxRuntimeInstaller.ProgressListener?,
         baseUrl: String,
     ): String? = synchronized(DesktopCatalog.installLock) {
-        val pack = AppLanguage.supportedTag(AppLanguage.effective(context))?.let { packLocale(it) }
+        val pack = packLocale(effectiveTag(context))
         if (pack != null && !pack.startsWith("en")) marker(LinuxRuntime.rootDir(context), pack).delete()
         ensure(context, listener, baseUrl)
     }
@@ -116,7 +120,7 @@ object DesktopI18n {
     ): String? {
         val root = LinuxRuntime.rootDir(context)
         if (!root.isDirectory) return "the runtime is not installed"
-        val tag = AppLanguage.supportedTag(AppLanguage.effective(context)) ?: return "the app language has no desktop pack"
+        val tag = effectiveTag(context)
         val pack = packLocale(tag) ?: return "the app language has no desktop pack"
         val posix = posixLocale(tag) ?: return "the app language has no locale"
         if (!pack.startsWith("en") && !installed(root, pack)) {

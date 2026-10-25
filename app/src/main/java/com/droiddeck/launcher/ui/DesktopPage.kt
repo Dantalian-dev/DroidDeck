@@ -386,20 +386,23 @@ private fun DesktopLanguageRow(s: FrontEndState) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     val colors = MaterialTheme.colorScheme
-    val locale = AppLanguage.effective(ctx)
-    val tag = AppLanguage.supportedTag(locale)
-    val name = if (tag != null) AppLanguage.nativeName(tag) else AppLanguage.displayName(locale)
-    val pack = tag?.let { DesktopI18n.packLocale(it) }
+    val tag = DesktopI18n.effectiveTag(ctx)
+    val name = AppLanguage.nativeName(tag)
+    val pack = DesktopI18n.packLocale(tag)
     val builtin = pack == null || pack.startsWith("en")
     val root = remember(ctx) { LinuxRuntime.rootDir(ctx) }
     var refresh by remember { mutableStateOf(0) }
+    var working by remember { mutableStateOf(false) }
     var stage by remember { mutableStateOf<String?>(null) }
     var problem by remember { mutableStateOf<String?>(null) }
     val installed by produceState<Boolean?>(null, pack, refresh) {
         value = if (builtin) false else withContext(Dispatchers.IO) { DesktopI18n.installed(root, pack!!) }
     }
+    // The index fetch runs before the first progress callback, so "working" is what the row
+    // shows until a real stage arrives; the button stays hidden meanwhile (no repeat taps).
+    val progress = stage ?: if (working) stringResource(R.string.user_apps_starting) else null
     val subtitle = when {
-        stage != null -> stage!!
+        progress != null -> progress
         problem != null -> problem!!
         builtin -> stringResource(R.string.desktop_language_builtin, name)
         installed == null -> "…"
@@ -409,20 +412,22 @@ private fun DesktopLanguageRow(s: FrontEndState) {
     SettingsRow(stringResource(R.string.desktop_language), subtitle) {
         when {
             builtin -> {}
-            stage != null -> Text(
-                stage!!, fontSize = 12.sp, color = colors.onSurfaceVariant, maxLines = 1,
+            progress != null -> Text(
+                progress, fontSize = 12.sp, color = colors.onSurfaceVariant, maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
             installed != null -> SecondaryButton(
                 stringResource(if (installed == true) R.string.desktop_language_reinstall else R.string.setup_install),
-                enabled = !s.busy && s.packageBusyId == null, compact = true,
+                enabled = !s.busy && s.packageBusyId == null && !working, compact = true,
             ) {
                 problem = null
+                working = true
                 scope.launch(Dispatchers.IO) {
                     val reason = DesktopI18n.reinstall(ctx) { label, _ -> stage = label }
                     stage = null
                     problem = reason
                     if (reason == null) refresh++
+                    working = false
                 }
             }
         }

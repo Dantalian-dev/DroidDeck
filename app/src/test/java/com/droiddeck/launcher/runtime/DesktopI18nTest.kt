@@ -362,4 +362,14 @@ class DesktopI18nTest {
         assertFalse(File(root, ".droiddeck-pkg-desktop-kde-i18n-en").exists())
         assertTrue(hits.isEmpty())
     }
+
+    @Test fun anUnsupportedAppLanguageFallsBackToEnglishWithoutTheNetwork() {
+        AppLanguage.setChosen(context, "sr")
+
+        assertNull(DesktopI18n.ensure(context, null, "http://127.0.0.1:1/desktop-kde.tar.zst"))
+
+        assertEquals("en", localercLanguage())
+        assertEquals("en\n", note().readText())
+        assertTrue(hits.isEmpty())
+    }
 }
