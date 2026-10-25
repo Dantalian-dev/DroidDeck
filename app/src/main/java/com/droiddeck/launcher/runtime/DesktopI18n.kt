@@ -83,6 +83,20 @@ object DesktopI18n {
     fun ensure(context: Context, listener: LinuxRuntimeInstaller.ProgressListener?): String? =
         ensure(context, listener, RELEASE_BASE)
 
+    fun reinstall(context: Context, listener: LinuxRuntimeInstaller.ProgressListener?): String? =
+        reinstall(context, listener, RELEASE_BASE)
+
+    /** Drops the marker first, so ensure() downloads the pack again and re-applies the language. */
+    internal fun reinstall(
+        context: Context,
+        listener: LinuxRuntimeInstaller.ProgressListener?,
+        baseUrl: String,
+    ): String? = synchronized(DesktopCatalog.installLock) {
+        val pack = AppLanguage.supportedTag(AppLanguage.effective(context))?.let { packLocale(it) }
+        if (pack != null && !pack.startsWith("en")) marker(LinuxRuntime.rootDir(context), pack).delete()
+        ensure(context, listener, baseUrl)
+    }
+
     /** Returns null on success and a reason otherwise; callers log it and start the desktop anyway. */
     internal fun ensure(
         context: Context,

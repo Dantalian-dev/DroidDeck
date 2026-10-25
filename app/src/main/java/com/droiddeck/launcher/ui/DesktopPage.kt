@@ -52,6 +52,7 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -86,8 +87,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.droiddeck.launcher.R
+import com.droiddeck.launcher.core.AppLanguage
 import com.droiddeck.launcher.core.FileUtils
 import com.droiddeck.launcher.frontend.Library
+import com.droiddeck.launcher.runtime.DesktopI18n
+import com.droiddeck.launcher.runtime.LinuxRuntime
 import com.droiddeck.launcher.runtime.UserApps
 import com.droiddeck.launcher.session.SessionService
 import com.droiddeck.launcher.store.UserAppsState
@@ -370,8 +374,57 @@ private fun DesktopFiles(s: FrontEndState, a: FrontEndActions) {
     if (s.desktopPresent) SettingsGroup(stringResource(R.string.content_linux_desktop)) {
         val size by produceState<Long?>(null) { value = withContext(Dispatchers.IO) { runCatching { com.droiddeck.launcher.runtime.DesktopCatalog.desktopSize(ctx) }.getOrNull() } }
         SettingsRow(stringResource(R.string.desktop_size), size?.let { FileUtils.sizeToString(it) } ?: "…") {}
+        DesktopLanguageRow(s)
         SettingsRow(stringResource(R.string.desktop_remove_title), stringResource(R.string.desktop_remove_text)) {
             UninstallDesktop(enabled = !s.runtimeActionsBlocked, onUninstall = a.onRemoveDesktop)
+        }
+    }
+}
+
+@Composable
+private fun DesktopLanguageRow(s: FrontEndState) {
+    val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val colors = MaterialTheme.colorScheme
+    val locale = AppLanguage.effective(ctx)
+    val tag = AppLanguage.supportedTag(locale)
+    val name = if (tag != null) AppLanguage.nativeName(tag) else AppLanguage.displayName(locale)
+    val pack = tag?.let { DesktopI18n.packLocale(it) }
+    val builtin = pack == null || pack.startsWith("en")
+    val root = remember(ctx) { LinuxRuntime.rootDir(ctx) }
+    var refresh by remember { mutableStateOf(0) }
+    var stage by remember { mutableStateOf<String?>(null) }
+    var problem by remember { mutableStateOf<String?>(null) }
+    val installed by produceState<Boolean?>(null, pack, refresh) {
+        value = if (builtin) false else withContext(Dispatchers.IO) { DesktopI18n.installed(root, pack!!) }
+    }
+    val subtitle = when {
+        stage != null -> stage!!
+        problem != null -> problem!!
+        builtin -> stringResource(R.string.desktop_language_builtin, name)
+        installed == null -> "…"
+        installed == true -> stringResource(R.string.desktop_language_installed, name)
+        else -> stringResource(R.string.desktop_language_missing, name)
+    }
+    SettingsRow(stringResource(R.string.desktop_language), subtitle) {
+        when {
+            builtin -> {}
+            stage != null -> Text(
+                stage!!, fontSize = 12.sp, color = colors.onSurfaceVariant, maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            installed != null -> SecondaryButton(
+                stringResource(if (installed == true) R.string.desktop_language_reinstall else R.string.setup_install),
+                enabled = !s.busy && s.packageBusyId == null, compact = true,
+            ) {
+                problem = null
+                scope.launch(Dispatchers.IO) {
+                    val reason = DesktopI18n.reinstall(ctx) { label, _ -> stage = label }
+                    stage = null
+                    problem = reason
+                    if (reason == null) refresh++
+                }
+            }
         }
     }
 }

@@ -316,6 +316,27 @@ class DesktopI18nTest {
         assertEquals(1, fetched(DesktopI18n.packFor(base, "zh_TW")))
     }
 
+    @Test fun reinstallDropsTheMarkerAndDownloadsThePackAgain() {
+        AppLanguage.setChosen(context, "zh-TW")
+        val pack = archive("./usr/share/locale/zh_TW/LC_MESSAGES/messages.mo", "translations")
+        val base = serve { b ->
+            mapOf(
+                DesktopI18n.indexFor(b) to "zh_TW ${sha256(pack)} ${pack.size}\n".toByteArray(),
+                DesktopI18n.packFor(b, "zh_TW") to pack,
+            )
+        }
+
+        assertNull(DesktopI18n.ensure(context, null, base))
+        assertEquals(1, fetched(DesktopI18n.packFor(base, "zh_TW")))
+
+        assertNull(DesktopI18n.reinstall(context, null, base))
+
+        assertEquals(2, fetched(DesktopI18n.indexFor(base)))
+        assertEquals(2, fetched(DesktopI18n.packFor(base, "zh_TW")))
+        assertEquals("translations", File(root, "usr/share/locale/zh_TW/LC_MESSAGES/messages.mo").readText())
+        assertEquals("zh_TW", localercLanguage())
+    }
+
     @Test fun aPackMissingFromTheIndexIsReportedInsteadOfTouchingTheDesktop() {
         AppLanguage.setChosen(context, "zh-TW")
         val base = serve { b ->
