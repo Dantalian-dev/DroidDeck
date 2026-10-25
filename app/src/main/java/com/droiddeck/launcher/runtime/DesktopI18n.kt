@@ -157,15 +157,16 @@ object DesktopI18n {
     /**
      * plasma-localerc also belongs to the user: it is rewritten only while its [Translations]
      * LANGUAGE still equals the note of our last write, so a language picked in KDE settings is
-     * never overwritten; a missing note or a missing localerc is ours to write.
+     * never overwritten. A localerc that already carries a LANGUAGE value but no note predates
+     * any write of ours and is left untouched; one without a LANGUAGE value is ours to write.
      */
     internal fun applyLanguage(root: File, language: String, posix: String) {
         val localerc = File(root, LOCALERC)
         val note = FileUtils.readString(File(root, LANGUAGE_NOTE))?.trim()?.takeIf { it.isNotEmpty() }
         val current = readLanguage(FileUtils.readString(localerc))
         val write = when {
-            note == null -> true
             current == null -> true
+            note == null -> false
             current != note -> false
             else -> current != language
         }

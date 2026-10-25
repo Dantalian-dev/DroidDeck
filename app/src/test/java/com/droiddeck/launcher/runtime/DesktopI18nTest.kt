@@ -210,6 +210,24 @@ class DesktopI18nTest {
         assertEquals("ru\n", note().readText())
     }
 
+    @Test fun aPlasmaLanguageWeNeverWroteIsLeftAlone() {
+        val localerc = File(root, "root/.config/plasma-localerc")
+        localerc.parentFile?.mkdirs()
+        val user = "[Formats]\nLANG=fr_FR.UTF-8\nLC_TIME=fr_FR.UTF-8\n\n[Translations]\nLANGUAGE=fr\n"
+        localerc.writeText(user)
+
+        DesktopI18n.applyLanguage(root, "zh_TW", "zh_TW.UTF-8")
+
+        assertEquals(user, localerc.readText())
+        assertFalse(note().exists())
+
+        localerc.writeText("[Formats]\nLANG=fr_FR.UTF-8\nLC_TIME=fr_FR.UTF-8\n")
+        DesktopI18n.applyLanguage(root, "zh_TW", "zh_TW.UTF-8")
+
+        assertEquals("zh_TW", localercLanguage())
+        assertEquals("zh_TW\n", note().readText())
+    }
+
     @Test fun aPackCountsAsInstalledOnlyWithThisReleasesMarkerAndItsDirectory() {
         val pack = "zh_TW"
         val marker = File(root, ".droiddeck-pkg-desktop-kde-i18n-$pack")
