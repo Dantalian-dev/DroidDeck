@@ -159,11 +159,13 @@ object DesktopI18n {
      * LANGUAGE still equals the note of our last write, so a language picked in KDE settings is
      * never overwritten. A localerc that already carries a LANGUAGE value but no note predates
      * any write of ours and is left untouched; one without a LANGUAGE value is ours to write.
+     * Writes merge: only the keys we manage change, the rest of the file stays as it is.
      */
     internal fun applyLanguage(root: File, language: String, posix: String) {
         val localerc = File(root, LOCALERC)
         val note = FileUtils.readString(File(root, LANGUAGE_NOTE))?.trim()?.takeIf { it.isNotEmpty() }
-        val current = readLanguage(FileUtils.readString(localerc))
+        val existing = FileUtils.readString(localerc)
+        val current = readLanguage(existing)
         val write = when {
             current == null -> true
             note == null -> false
@@ -171,7 +173,7 @@ object DesktopI18n {
             else -> current != language
         }
         if (!write) return
-        val text = buildString {
+        val text = existing?.let { merged(it, language, posix) } ?: buildString {
             append("[Formats]\nLANG=$posix\n")
             for (field in FORMATS) append("$field=$posix\n")
             append("\n[Translations]\nLANGUAGE=$language\n")
@@ -181,6 +183,56 @@ object DesktopI18n {
             return
         }
         if (!FileUtils.writeString(File(root, LANGUAGE_NOTE), "$language\n")) Log.w(TAG, "could not record the desktop language")
+    }
+
+    private fun merged(existing: String, language: String, posix: String): String {
+        val managed = mapOf(
+            "Formats" to (listOf("LANG") + FORMATS).associateWith { posix },
+            "Translations" to mapOf("LANGUAGE" to language),
+        )
+        val order = mutableListOf("")
+        val blocks = mutableMapOf("" to mutableListOf<String>())
+        val headers = mutableMapOf<String, String>()
+        var section = ""
+        for (line in existing.lines()) {
+            val trimmed = line.trim()
+            if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+                section = trimmed.trim('[', ']')
+                if (section !in blocks) {
+                    order += section
+                    blocks[section] = mutableListOf()
+                    headers[section] = line
+                }
+            } else blocks.getValue(section) += line
+        }
+        for ((name, keys) in managed) {
+            val block = blocks[name]
+            if (block == null) {
+                order += name
+                blocks[name] = keys.map { (key, value) -> "$key=$value" }.toMutableList()
+                headers[name] = "[$name]"
+                continue
+            }
+            val pending = keys.toMutableMap()
+            for (i in block.indices) {
+                val trimmed = block[i].trim()
+                if (trimmed.isEmpty() || '=' !in trimmed) continue
+                val key = trimmed.substringBefore('=').trim()
+                if (key in pending) block[i] = "$key=${pending.remove(key)}"
+            }
+            var at = block.size
+            while (at > 0 && block[at - 1].isBlank()) at--
+            pending.forEach { (key, value) -> block.add(at, "$key=$value"); at++ }
+        }
+        val out = mutableListOf<String>()
+        for (name in order) {
+            if (name.isNotEmpty()) {
+                if (out.isNotEmpty() && out.last().isNotBlank()) out += ""
+                out += headers.getValue(name)
+            }
+            out += blocks.getValue(name)
+        }
+        return out.joinToString("\n")
     }
 
     private fun readLanguage(text: String?): String? {

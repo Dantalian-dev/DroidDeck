@@ -228,6 +228,27 @@ class DesktopI18nTest {
         assertEquals("zh_TW\n", note().readText())
     }
 
+    @Test fun rewritingKeepsSectionsTheAppDoesNotManage() {
+        DesktopI18n.applyLanguage(root, "fr", "fr_FR.UTF-8")
+        val localerc = File(root, "root/.config/plasma-localerc")
+        localerc.writeText(
+            localerc.readText()
+                .replace("[Formats]\n", "[Formats]\nCustom=yes\n")
+                .replace("LANGUAGE=fr\n", "LANGUAGE=fr\nUserKey=stay\n"),
+        )
+
+        DesktopI18n.applyLanguage(root, "de", "de_DE.UTF-8")
+
+        val text = localerc.readText()
+        assertTrue(text.contains("Custom=yes\n"))
+        assertTrue(text.contains("UserKey=stay\n"))
+        assertTrue(text.contains("LANG=de_DE.UTF-8\n"))
+        assertTrue(text.contains("LC_TIME=de_DE.UTF-8\n"))
+        assertFalse(text.contains("fr_FR"))
+        assertEquals("de", localercLanguage())
+        assertEquals("de\n", note().readText())
+    }
+
     @Test fun aPackCountsAsInstalledOnlyWithThisReleasesMarkerAndItsDirectory() {
         val pack = "zh_TW"
         val marker = File(root, ".droiddeck-pkg-desktop-kde-i18n-$pack")
