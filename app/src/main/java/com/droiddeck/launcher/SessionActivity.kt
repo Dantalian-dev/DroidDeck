@@ -744,10 +744,12 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
             val protonUser = (intent.getStringExtra(SessionService.EXTRA_MODE) ?: SessionService.MODE_STEAM) == SessionService.MODE_STEAM ||
                 program == com.droiddeck.launcher.runtime.BattleNet.PROGRAM || program == com.droiddeck.launcher.session.NoSteamLaunch.PROTON_RUN
             val needProton = protonUser && com.droiddeck.launcher.runtime.DesktopCatalog.protonSeedNeeded(this)
-            if (needRuntime || needResume || needDesktop || needProton) installThenStart(needRuntime, needDesktop, needProton, needResume)
-            // A runtime replacement races the language ensure (it does not hold installLock), so
-            // that case waits for installThenStart's success path instead.
-            if (!needRuntime && intent.getStringExtra(SessionService.EXTRA_MODE) == SessionService.MODE_DESKTOP) ensureDesktopLanguage()
+            val installPending = needRuntime || needResume || needDesktop || needProton
+            if (installPending) installThenStart(needRuntime, needDesktop, needProton, needResume)
+            // Pending installations ensure the language through installLocked or
+            // installThenStart's success path, so the early call only serves
+            // sessions that start without installing.
+            if (!installPending && intent.getStringExtra(SessionService.EXTRA_MODE) == SessionService.MODE_DESKTOP) ensureDesktopLanguage()
         }
         hud = DroidDeckHudHost(this)
         hud.onConfigChanged = { hudConfig = DroidDeckHudConfig.load(this) }
