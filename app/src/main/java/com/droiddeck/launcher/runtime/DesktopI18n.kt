@@ -218,7 +218,10 @@ object DesktopI18n {
                 val trimmed = block[i].trim()
                 if (trimmed.isEmpty() || '=' !in trimmed) continue
                 val key = trimmed.substringBefore('=').trim()
-                if (key in pending) block[i] = "$key=${pending.remove(key)}"
+                if (key in keys) {
+                    block[i] = "$key=${keys.getValue(key)}"
+                    pending.remove(key)
+                }
             }
             var at = block.size
             while (at > 0 && block[at - 1].isBlank()) at--
@@ -241,7 +244,7 @@ object DesktopI18n {
         for (raw in text.lineSequence()) {
             val line = raw.trim()
             if (line.startsWith("[")) section = line.trim('[', ']')
-            else if (section == "Translations" && line.startsWith("LANGUAGE=")) {
+            else if (section == "Translations" && line.contains('=') && line.substringBefore('=').trim() == "LANGUAGE") {
                 return line.substringAfter('=').trim().takeIf { it.isNotEmpty() }
             }
         }

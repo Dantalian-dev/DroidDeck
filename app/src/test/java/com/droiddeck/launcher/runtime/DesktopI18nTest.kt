@@ -228,6 +228,31 @@ class DesktopI18nTest {
         assertEquals("zh_TW\n", note().readText())
     }
 
+    @Test fun aLocalercLanguageKeyWrittenWithSpacesIsLeftAlone() {
+        val localerc = File(root, "root/.config/plasma-localerc")
+        localerc.parentFile?.mkdirs()
+        val user = "[Formats]\nLANG=fr_FR.UTF-8\nLC_TIME=fr_FR.UTF-8\n\n[Translations]\nLANGUAGE = fr\n"
+        localerc.writeText(user)
+
+        DesktopI18n.applyLanguage(root, "zh_TW", "zh_TW.UTF-8")
+
+        assertEquals(user, localerc.readText())
+        assertFalse(note().exists())
+    }
+
+    @Test fun everyDuplicateEntryOfAManagedKeyIsUpdated() {
+        DesktopI18n.applyLanguage(root, "fr", "fr_FR.UTF-8")
+        val localerc = File(root, "root/.config/plasma-localerc")
+        localerc.writeText(localerc.readText().replace("LANGUAGE=fr\n", "LANGUAGE=fr\nLANGUAGE=fr\n"))
+        assertEquals(2, localerc.readText().lines().count { it == "LANGUAGE=fr" })
+
+        DesktopI18n.applyLanguage(root, "de", "de_DE.UTF-8")
+
+        val entries = localerc.readText().lines().filter { it.startsWith("LANGUAGE=") }
+        assertEquals(listOf("LANGUAGE=de", "LANGUAGE=de"), entries)
+        assertEquals("de\n", note().readText())
+    }
+
     @Test fun rewritingKeepsSectionsTheAppDoesNotManage() {
         DesktopI18n.applyLanguage(root, "fr", "fr_FR.UTF-8")
         val localerc = File(root, "root/.config/plasma-localerc")

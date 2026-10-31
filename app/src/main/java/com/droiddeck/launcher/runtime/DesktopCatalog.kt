@@ -236,7 +236,9 @@ object DesktopCatalog {
                 check(!pending.exists() || pending.delete()) { "Could not finish desktop installation" }
                 // The desktop's language pack is finished under the same lock, so resuming an
                 // interrupted desktop install also brings its translations.
-                DesktopI18n.ensure(context, report)
+                DesktopI18n.ensure(context, report)?.let { problem ->
+                    Log.w(TAG, "desktop language: $problem")
+                }
             }
             FileUtils.writeString(marker(context, entry.id), entry.version)
             check(installed(context, entry.id) == entry.version) { "Could not finish package installation" }
