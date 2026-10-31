@@ -2021,8 +2021,12 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
         }
     }
 
-    /** Runs beside the desktop start: a missing pack or index only logs and the session starts in English. */
+    /**
+     * Applies a ready language before the guest starts; a missing pack or failed download only
+     * logs while the session starts in English.
+     */
     private fun ensureDesktopLanguage() {
+        if (com.droiddeck.launcher.runtime.DesktopI18n.applyLocal(applicationContext) == null) return
         Thread({
             val problem = com.droiddeck.launcher.runtime.DesktopI18n.ensure(applicationContext, null)
             if (problem != null) {

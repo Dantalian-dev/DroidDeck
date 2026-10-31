@@ -372,4 +372,45 @@ class DesktopI18nTest {
         assertEquals("en\n", note().readText())
         assertTrue(hits.isEmpty())
     }
+
+    @Test fun applyLocalReportsAMissingPackInsteadOfDownloading() {
+        AppLanguage.setChosen(context, "zh-TW")
+
+        assertNotNull(DesktopI18n.applyLocal(context))
+
+        assertNull(localerc())
+        assertFalse(note().exists())
+    }
+
+    @Test fun applyLocalAppliesEnglishWithoutAPack() {
+        AppLanguage.setChosen(context, "en")
+
+        assertNull(DesktopI18n.applyLocal(context))
+
+        assertEquals("LANG=en_US.UTF-8", localerc()?.lineSequence()?.firstOrNull { it.startsWith("LANG=") })
+        assertEquals("en", localercLanguage())
+        assertEquals("en\n", note().readText())
+        assertTrue(hits.isEmpty())
+    }
+
+    @Test fun applyLocalAppliesAnInstalledPackWithoutFetchingAgain() {
+        AppLanguage.setChosen(context, "zh-TW")
+        val pack = archive("./usr/share/locale/zh_TW/LC_MESSAGES/messages.mo", "translations")
+        val base = serve { b ->
+            mapOf(
+                DesktopI18n.indexFor(b) to "zh_TW ${sha256(pack)} ${pack.size}\n".toByteArray(),
+                DesktopI18n.packFor(b, "zh_TW") to pack,
+            )
+        }
+
+        assertNull(DesktopI18n.ensure(context, null, base))
+        File(root, "root/.config/plasma-localerc").delete()
+        note().delete()
+
+        assertNull(DesktopI18n.applyLocal(context))
+
+        assertEquals("zh_TW", localercLanguage())
+        assertEquals(1, fetched(DesktopI18n.indexFor(base)))
+        assertEquals(1, fetched(DesktopI18n.packFor(base, "zh_TW")))
+    }
 }

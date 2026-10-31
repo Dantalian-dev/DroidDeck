@@ -113,10 +113,22 @@ object DesktopI18n {
         }
     }
 
+    /**
+     * Applies the language when its pack is already present, without the network. Deliberately
+     * unlocked: callers run on the session-start thread while installs can hold installLock for
+     * minutes, and this only writes plasma-localerc, never the pack.
+     */
+    internal fun applyLocal(context: Context): String? =
+        runCatching { ensureLocked(context, null, RELEASE_BASE, download = false) }.getOrElse { e ->
+            Log.e(TAG, "applyLocal", e)
+            e.message ?: "the desktop language could not be applied"
+        }
+
     private fun ensureLocked(
         context: Context,
         listener: LinuxRuntimeInstaller.ProgressListener?,
         baseUrl: String,
+        download: Boolean = true,
     ): String? {
         val root = LinuxRuntime.rootDir(context)
         if (!root.isDirectory) return "the runtime is not installed"
@@ -124,6 +136,7 @@ object DesktopI18n {
         val pack = packLocale(tag) ?: return "the app language has no desktop pack"
         val posix = posixLocale(tag) ?: return "the app language has no locale"
         if (!pack.startsWith("en") && !installed(root, pack)) {
+            if (!download) return "the language pack is not installed"
             installPack(context, root, tag, pack, listener, baseUrl)?.let { return it }
         }
         applyLanguage(root, pack, posix)?.let { return it }
